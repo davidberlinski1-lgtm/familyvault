@@ -154,20 +154,20 @@ async function onUnlock(e) {
   if (answers.some(a => !vc.normalizeAnswer(a))) return denied(form, 'Please answer every question.');
 
   setBusy(form, true);
-  setMsg(form, 'VERIFYING IDENTITY…', true);
+  setMsg(form, 'Checking…', true);
   try {
     const { wrapKey, authProof } = await vc.deriveFromAnswers(answers, ch.salt);
     const res = await rpc('vault_unlock', { p_combo: ch.combo, p_proof: authProof });
     if (res.error === 'locked') {
-      return denied(form, 'LOCKDOWN ENGAGED. Too many wrong answers — try again in 15 minutes.');
+      return denied(form, 'Too many wrong answers. The vault is locked for 15 minutes.');
     }
     if (res.error === 'wrong') {
       return denied(form, res.remaining > 0
-        ? `ACCESS DENIED. ${res.remaining} more wrong ${res.remaining === 1 ? 'try' : 'tries'} and the vault locks for 15 minutes.`
-        : 'ACCESS DENIED. LOCKDOWN ENGAGED for 15 minutes.');
+        ? `Access denied. ${res.remaining} more wrong ${res.remaining === 1 ? 'try' : 'tries'} and the vault locks for 15 minutes.`
+        : 'Access denied. The vault is now locked for 15 minutes.');
     }
     const key = await vc.unwrapVaultKey(wrapKey, res.wrapped_key);
-    setMsg(form, 'ACCESS GRANTED. Welcome home.', true);
+    setMsg(form, 'Access granted. Welcome home!', true);
     $('.dial-wrap').classList.add('open');
     await new Promise(r => setTimeout(r, 850));
     await enterVault({

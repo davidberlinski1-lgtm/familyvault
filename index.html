@@ -14,7 +14,7 @@
 <body data-view="loading">
 <main>
   <section data-view="loading" class="center-screen">
-    <p class="gate-loading">ESTABLISHING SECURE CONNECTION<span class="dots"></span></p>
+    <p class="gate-loading">Opening the vault<span class="dots"></span></p>
   </section>
 
   <section data-view="error" class="card narrow" hidden>
@@ -25,24 +25,19 @@
 
   <section data-view="unlock" class="gate" hidden>
     <div class="gate-panel">
-      <div class="gate-bar">
-        <span><i class="live-dot" aria-hidden="true"></i>SECURE TERMINAL · BFV-01</span>
-        <span>CLEARANCE: COUCH POTATO</span>
-      </div>
-
       <div class="dial-wrap" aria-hidden="true"><div class="dial"></div></div>
 
-      <p class="eyebrow">// TOP SECRET · BERLINSKI EYES ONLY</p>
+      <p class="eyebrow">Top secret · Berlinski eyes only</p>
       <h1 class="gate-title">Berlinski Family<br><span>Streaming Services</span><br>Password Vault</h1>
 
       <ul class="status">
-        <li><span>ENCRYPTION</span><b>AES-256 · ONLINE</b></li>
-        <li><span>INTRUDER LOCKOUT</span><b class="amber">ARMED</b></li>
-        <li><span>POPCORN RESERVES</span><b>ADEQUATE</b></li>
+        <li><span>Clearance level</span><b>Couch potato</b></li>
+        <li><span>Intruder lockout</span><b class="amber">Armed</b></li>
+        <li><span>Popcorn reserves</span><b>Adequate</b></li>
       </ul>
 
       <form id="unlock-form" autocomplete="off">
-        <p class="prompt">&gt; IDENTITY CHECK — prove you're a Berlinski<span class="cursor" aria-hidden="true"></span></p>
+        <p class="prompt">Prove you're a Berlinski</p>
         <div id="challenge-questions"></div>
         <p class="hint">Capitals, spaces and punctuation don't matter.</p>
         <p id="unlock-msg" class="msg" role="alert"></p>
