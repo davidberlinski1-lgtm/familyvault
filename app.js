@@ -126,7 +126,7 @@ function renderPinPage() {
   form.reset();
   $('#pin-input').hidden = !hasPin;
   $('#pin-input').required = hasPin;
-  $('#pin-prompt').textContent = hasPin ? 'Enter the family PIN' : 'No family PIN set yet';
+  $('#pin-prompt').textContent = hasPin ? 'Enter the original Berlinski family PIN' : 'No family PIN set yet';
   setMsg(form, '');
   $('.dial-wrap').classList.remove('open');
   for (const p of document.querySelectorAll('.gate-panel')) p.classList.remove('denied');
