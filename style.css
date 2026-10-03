@@ -194,16 +194,39 @@ body[data-view="unlock"] {
   color-scheme: dark;
   color: var(--g-text);
   background:
-    radial-gradient(ellipse at 50% 0%, rgb(61 255 143 / 8%), transparent 60%),
+    radial-gradient(ellipse at 50% 0%, rgb(61 255 143 / 9%), transparent 60%) no-repeat,
     var(--g-bg);
-  background-attachment: fixed;
+}
+
+/* Grid and scanlines sit on fixed layers (not background-attachment: fixed,
+   which mobile Safari ignores), so they stay put and smooth while scrolling. */
+body[data-view="loading"]::before,
+body[data-view="unlock"]::before,
+body[data-view="unlock"]::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+body[data-view="loading"]::before,
+body[data-view="unlock"]::before {
+  z-index: -1;
+  background:
+    linear-gradient(var(--g-line) 1px, transparent 1px) 0 0 / 32px 32px,
+    linear-gradient(90deg, var(--g-line) 1px, transparent 1px) 0 0 / 32px 32px;
+  -webkit-mask-image: radial-gradient(ellipse at 50% 30%, #000 40%, transparent 100%);
+  mask-image: radial-gradient(ellipse at 50% 30%, #000 40%, transparent 100%);
+}
+body[data-view="unlock"]::after {
+  z-index: 10;
+  background: repeating-linear-gradient(0deg, rgb(0 0 0 / 20%) 0 1px, transparent 1px 3px);
 }
 
 .gate-loading { color: var(--g-muted); }
 .dots::after { content: ""; animation: dots 1.2s steps(4) infinite; }
 @keyframes dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
 
-.gate { display: grid; place-items: center; min-height: calc(100vh - 88px); }
+.gate { display: grid; place-items: center; min-height: calc(100vh - 88px); min-height: calc(100dvh - 88px); }
 
 .gate-panel {
   position: relative;
@@ -353,7 +376,16 @@ body[data-view="unlock"] {
 }
 
 @media (max-width: 480px) {
+  body[data-view="unlock"] main { padding-top: 16px; padding-bottom: 24px; }
+  body[data-view="loading"]::before,
+  body[data-view="unlock"]::before { background-size: 24px 24px; }
+  .gate { place-items: start center; min-height: 0; }
   .gate-panel { padding: 22px 18px 20px; }
+  .dial-wrap { width: 84px; height: 84px; margin-bottom: 14px; }
+  .gate-title { margin-bottom: 16px; }
+  .status { padding: 8px 12px; font-size: 0.8rem; }
+  .status li span, .status li b { white-space: nowrap; }
+  .gate input { font-size: 16px; } /* stops iPhone zooming in on tap */
 }
 
 @media (prefers-reduced-motion: reduce) {
