@@ -92,6 +92,13 @@ export async function decryptEntries(vaultKey, box) {
   return JSON.parse(dec.decode(await aesDecrypt(await importVaultKey(vaultKey), box)));
 }
 
+// The family PIN works like a one-answer question: it yields a key (used to
+// encrypt the security team photo) and a proof the server checks.
+export const newSalt = () => toB64(randomBytes(16));
+export const derivePinKeys = (pin, saltB64) => deriveFromAnswers([pin], saltB64);
+export const encryptWithKey = (key, bytes) => aesEncrypt(key, bytes);
+export const decryptWithKey = (key, box) => aesDecrypt(key, box);
+
 // Anyone who has unlocked the vault can compute this; nobody else can.
 export async function writeProof(vaultKey) {
   return sha256Hex('family-vault-write:' + toHex(vaultKey));

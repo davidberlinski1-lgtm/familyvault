@@ -4,6 +4,8 @@ import * as vc from './crypto.js';
 const QUESTION_COUNT = 10;
 const IDLE_LOCK_MS = 10 * 60 * 1000;
 const FIELDS = ['service', 'profile', 'username', 'password', 'url', 'notes'];
+const GATE_VIEWS = new Set(['loading', 'unlock', 'questions']);
+const PHOTO_MAX_PX = 900;
 
 const DEFAULT_QUESTIONS = [
   'What was the name of our first family pet?',
@@ -52,6 +54,7 @@ function el(tag, props = {}, children = []) {
 function show(view) {
   for (const s of document.querySelectorAll('main [data-view]')) s.hidden = s.dataset.view !== view;
   document.body.dataset.view = view;
+  document.body.dataset.theme = GATE_VIEWS.has(view) ? 'gate' : '';
   window.scrollTo(0, 0);
 }
 
@@ -79,13 +82,19 @@ function setMsg(form, text, info = false) {
   m.classList.toggle('info', info);
 }
 
-// ---------- start / unlock ----------
+// ---------- page 1: family PIN ----------
+
+const wait = ms => new Promise(r => setTimeout(r, ms));
+// Don't pop up the phone keyboard (and scroll past the photo) on touch screens.
+const focusIfDesktop = input => { if (matchMedia('(pointer: fine)').matches) input?.focus(); };
 
 async function start() {
-  state.key = null;
-  state.proof = null;
-  state.entries = [];
+  Object.assign(state, {
+    key: null, proof: null, entries: [], challenge: null,
+    pinKey: null, pinProof: null, hasPin: false,
+  });
   $('#entries').replaceChildren();
+  setPhoto(null);
   if ($('#entry-dialog').open) $('#entry-dialog').close();
 
   if (!isConfigured()) {
@@ -94,19 +103,85 @@ async function start() {
   }
   show('loading');
   try {
-    const ch = await rpc('vault_challenge');
-    if (!ch.setup) {
-      renderQaForm($('#setup-form'), DEFAULT_QUESTIONS, 1);
+    const gate = await rpc('vault_gate');
+    if (!gate.setup) {
+      renderQaForm($('#setup-form'), DEFAULT_QUESTIONS, 2);
       show('setup');
       return;
     }
-    renderChallenge(ch);
+    state.gate = gate;
+    renderPinPage();
     show('unlock');
-    $('#challenge-questions input')?.focus();
+    focusIfDesktop($('#pin-input'));
   } catch (err) {
-    showError(err.message);
+    showError(/vault_gate/.test(err.message)
+      ? 'The database needs updating. Run supabase/002_pin_and_photo.sql in Supabase.'
+      : err.message);
   }
 }
+
+function renderPinPage() {
+  const form = $('#pin-form');
+  const hasPin = state.gate.has_pin;
+  form.reset();
+  $('#pin-input').hidden = !hasPin;
+  $('#pin-input').required = hasPin;
+  $('#pin-prompt').textContent = hasPin ? 'Enter the family PIN' : 'No family PIN set yet';
+  setMsg(form, '');
+  $('.dial-wrap').classList.remove('open');
+  for (const p of document.querySelectorAll('.gate-panel')) p.classList.remove('denied');
+}
+
+function denied(form, text) {
+  setMsg(form, text);
+  const panel = form.closest('.gate-panel');
+  panel.classList.remove('denied');
+  void panel.offsetWidth; // restart the shake animation
+  panel.classList.add('denied');
+}
+
+function wrongMessage(res) {
+  if (res.error === 'locked') return 'Too many wrong tries. The vault is locked for 15 minutes.';
+  return res.remaining > 0
+    ? `Access denied. ${res.remaining} more wrong ${res.remaining === 1 ? 'try' : 'tries'} and the vault locks for 15 minutes.`
+    : 'Access denied. The vault is now locked for 15 minutes.';
+}
+
+const validPin = pin => /^\d{4,8}$/.test(pin);
+
+async function onPin(e) {
+  e.preventDefault();
+  const form = e.target;
+  let pinKey = null;
+  let pinProof = null;
+
+  setBusy(form, true);
+  setMsg(form, 'Checking…', true);
+  try {
+    if (state.gate.has_pin) {
+      const pin = form.elements.pin.value.trim();
+      if (!validPin(pin)) return denied(form, 'The PIN is 4 to 8 digits.');
+      ({ wrapKey: pinKey, authProof: pinProof } = await vc.derivePinKeys(pin, state.gate.pin_salt));
+    }
+    const ch = await rpc('vault_challenge', { p_pin_proof: pinProof });
+    if (ch.error) return denied(form, wrongMessage(ch));
+
+    Object.assign(state, { pinKey, pinProof });
+    setMsg(form, state.gate.has_pin ? 'PIN accepted.' : '', true);
+    $('.dial-wrap').classList.add('open');
+    await wait(800);
+    await setPhotoFromBox(ch.photo);
+    renderChallenge(ch);
+    show('questions');
+    focusIfDesktop($('#challenge-questions input'));
+  } catch (err) {
+    denied(form, err.message);
+  } finally {
+    setBusy(form, false);
+  }
+}
+
+// ---------- page 2: photo + security questions ----------
 
 function renderChallenge(ch) {
   state.challenge = ch;
@@ -116,16 +191,6 @@ function renderChallenge(ch) {
       el('input', { name: `a${i}`, required: true, autocapitalize: 'none', spellcheck: 'false' }),
     ])));
   setMsg($('#unlock-form'), '');
-  $('.dial-wrap').classList.remove('open');
-  $('.gate-panel').classList.remove('denied');
-}
-
-function denied(form, text) {
-  setMsg(form, text);
-  const panel = $('.gate-panel');
-  panel.classList.remove('denied');
-  void panel.offsetWidth; // restart the shake animation
-  panel.classList.add('denied');
 }
 
 async function onNewQuestion() {
@@ -134,7 +199,8 @@ async function onNewQuestion() {
   try {
     let ch;
     for (let i = 0; i < 4; i++) {
-      ch = await rpc('vault_challenge');
+      ch = await rpc('vault_challenge', { p_pin_proof: state.pinProof, p_with_photo: false });
+      if (ch.error) return denied(form, wrongMessage(ch));
       if (ch.combo !== state.challenge?.combo) break;
     }
     renderChallenge(ch);
@@ -142,7 +208,7 @@ async function onNewQuestion() {
     setMsg(form, err.message);
   } finally {
     setBusy(form, false);
-    $('#challenge-questions input')?.focus();
+    focusIfDesktop($('#challenge-questions input'));
   }
 }
 
@@ -157,25 +223,18 @@ async function onUnlock(e) {
   setMsg(form, 'Checking…', true);
   try {
     const { wrapKey, authProof } = await vc.deriveFromAnswers(answers, ch.salt);
-    const res = await rpc('vault_unlock', { p_combo: ch.combo, p_proof: authProof });
-    if (res.error === 'locked') {
-      return denied(form, 'Too many wrong answers. The vault is locked for 15 minutes.');
-    }
-    if (res.error === 'wrong') {
-      return denied(form, res.remaining > 0
-        ? `Access denied. ${res.remaining} more wrong ${res.remaining === 1 ? 'try' : 'tries'} and the vault locks for 15 minutes.`
-        : 'Access denied. The vault is now locked for 15 minutes.');
-    }
+    const res = await rpc('vault_unlock', { p_combo: ch.combo, p_proof: authProof, p_pin_proof: state.pinProof });
+    if (res.error) return denied(form, wrongMessage(res));
     const key = await vc.unwrapVaultKey(wrapKey, res.wrapped_key);
     setMsg(form, 'Access granted. Welcome home!', true);
-    $('.dial-wrap').classList.add('open');
-    await new Promise(r => setTimeout(r, 850));
+    await wait(600);
     await enterVault({
       key,
       version: res.version,
       entries: await vc.decryptEntries(key, res.data),
       questions: res.questions,
       required: res.answers_required,
+      hasPin: res.has_pin,
     });
     form.reset();
   } catch (err) {
@@ -185,12 +244,142 @@ async function onUnlock(e) {
   }
 }
 
-async function enterVault({ key, version, entries, questions, required }) {
-  Object.assign(state, { key, version, entries, questions, required, proof: await vc.writeProof(key) });
+async function enterVault({ key, version, entries, questions, required, hasPin }) {
+  Object.assign(state, { key, version, entries, questions, required, hasPin, proof: await vc.writeProof(key) });
   $('#search').value = '';
+  $('#pin-notice').hidden = hasPin;
   renderEntries();
   show('vault');
   resetIdle();
+}
+
+// ---------- security team photo (encrypted with the PIN) ----------
+
+let photoUrl = null;
+
+function setPhoto(bytes, type) {
+  if (photoUrl) URL.revokeObjectURL(photoUrl);
+  state.photoBytes = bytes;
+  state.photoType = type;
+  photoUrl = bytes ? URL.createObjectURL(new Blob([bytes], { type })) : null;
+  for (const img of [$('#team-img'), $('#photo-preview')]) {
+    if (photoUrl) img.src = photoUrl; else img.removeAttribute('src');
+  }
+  $('#team').hidden = !photoUrl;
+  $('#photo-preview').hidden = !photoUrl;
+  $('#photo-label').textContent = photoUrl ? 'Replace photo' : 'Upload photo';
+}
+
+async function setPhotoFromBox(box) {
+  if (!box || !state.pinKey) return setPhoto(null);
+  try {
+    setPhoto(await vc.decryptWithKey(state.pinKey, box), box.type);
+  } catch {
+    setPhoto(null);
+  }
+}
+
+// Shrinks the photo and crops away any transparent border, keeping transparency.
+async function preparePhoto(file) {
+  const bmp = await createImageBitmap(file);
+  const scale = Math.min(1, PHOTO_MAX_PX / Math.max(bmp.width, bmp.height));
+  const w = Math.round(bmp.width * scale);
+  const h = Math.round(bmp.height * scale);
+  const src = document.createElement('canvas');
+  src.width = w;
+  src.height = h;
+  const ctx = src.getContext('2d');
+  ctx.drawImage(bmp, 0, 0, w, h);
+
+  const { data } = ctx.getImageData(0, 0, w, h);
+  let top = h, left = w, right = -1, bottom = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (data[(y * w + x) * 4 + 3] > 8) {
+        if (y < top) top = y;
+        if (y > bottom) bottom = y;
+        if (x < left) left = x;
+        if (x > right) right = x;
+      }
+    }
+  }
+  if (right < 0) throw new Error('That image looks empty.');
+
+  const out = document.createElement('canvas');
+  out.width = right - left + 1;
+  out.height = bottom - top + 1;
+  out.getContext('2d').drawImage(src, left, top, out.width, out.height, 0, 0, out.width, out.height);
+
+  const toBlob = (type, q) => new Promise(r => out.toBlob(r, type, q));
+  const webp = await toBlob('image/webp', 0.85);
+  return webp?.type === 'image/webp' ? webp : toBlob('image/png');
+}
+
+async function onPhotoChosen(e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  const msg = $('#photo-msg');
+  msg.classList.add('info');
+  msg.textContent = 'Encrypting photo…';
+  try {
+    const blob = await preparePhoto(file);
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const box = await vc.encryptWithKey(state.pinKey, bytes);
+    const res = await rpc('vault_set_photo', { p_proof: state.proof, p_photo: { ...box, type: blob.type } });
+    if (res.error) throw new Error('not allowed. Lock and unlock again.');
+    setPhoto(bytes, blob.type);
+    msg.textContent = 'Photo saved. Only people with the PIN can see it.';
+  } catch (err) {
+    msg.classList.remove('info');
+    msg.textContent = `Couldn't save the photo: ${err.message}`;
+  }
+}
+
+// ---------- settings: PIN, photo, questions ----------
+
+function openSecurity() {
+  const form = $('#pin-set-form');
+  form.reset();
+  setMsg(form, '');
+  $('#pin-status').textContent = state.hasPin
+    ? 'A PIN is set. Type a new one here to change it.'
+    : 'No PIN yet. Until you set one, the security questions are open to anyone with the link.';
+  $('#photo-input').disabled = !state.hasPin;
+  $('#photo-msg').classList.add('info');
+  $('#photo-msg').textContent = state.hasPin ? '' : 'Set a PIN first. The photo is encrypted with it.';
+  show('security');
+}
+
+async function onPinSet(e) {
+  e.preventDefault();
+  const form = e.target;
+  const pin = form.elements.pin.value.trim();
+  if (!validPin(pin)) return setMsg(form, 'The PIN must be 4 to 8 digits.');
+  if (pin !== form.elements.pin2.value.trim()) return setMsg(form, 'The two PINs don\'t match.');
+
+  setBusy(form, true);
+  setMsg(form, 'Saving…', true);
+  try {
+    const salt = vc.newSalt();
+    const { wrapKey, authProof } = await vc.derivePinKeys(pin, salt);
+    // The photo is encrypted with the PIN, so re-encrypt it with the new one.
+    const photo = state.photoBytes
+      ? { ...(await vc.encryptWithKey(wrapKey, state.photoBytes)), type: state.photoType }
+      : null;
+    const res = await rpc('vault_set_pin', {
+      p_proof: state.proof, p_pin_salt: salt, p_pin_hash: await vc.sha256Hex(authProof), p_photo: photo,
+    });
+    if (res.error) throw new Error('Not allowed. Lock and unlock again.');
+    Object.assign(state, { pinKey: wrapKey, pinProof: authProof, hasPin: true });
+    $('#pin-notice').hidden = true;
+    openSecurity();
+    setMsg(form, 'PIN saved. Everyone will need it from now on.', true);
+  } catch (err) {
+    setMsg(form, err.message);
+  } finally {
+    setBusy(form, false);
+  }
 }
 
 // ---------- question forms (setup + settings) ----------
@@ -228,11 +417,16 @@ const progress = form => (done, total) => setMsg(form, `Securing your vault… $
 async function onSetup(e) {
   e.preventDefault();
   const form = e.target;
+  const pin = form.elements.pin.value.trim();
+  if (!validPin(pin)) return setMsg(form, 'The family PIN must be 4 to 8 digits.');
+  if (pin !== form.elements.pin2.value.trim()) return setMsg(form, 'The two PINs don\'t match.');
   const parsed = readQaForm(form);
   if (parsed.error) return setMsg(form, parsed.error);
 
   setBusy(form, true);
   try {
+    const pinSalt = vc.newSalt();
+    const { wrapKey: pinKey, authProof: pinProof } = await vc.derivePinKeys(pin, pinSalt);
     const key = vc.newVaultKey();
     const slots = await vc.buildKeySlots(key, parsed.answers, parsed.required, progress(form));
     const res = await rpc('vault_setup', {
@@ -241,10 +435,15 @@ async function onSetup(e) {
       p_data: await vc.encryptEntries(key, []),
       p_write_hash: await vc.sha256Hex(await vc.writeProof(key)),
       p_slots: slots,
+      p_pin_salt: pinSalt,
+      p_pin_hash: await vc.sha256Hex(pinProof),
     });
     if (res.error === 'exists') throw new Error('A vault already exists. Reload the page to unlock it.');
     if (res.error) throw new Error(res.error);
-    await enterVault({ key, version: res.version, entries: [], questions: parsed.questions, required: parsed.required });
+    Object.assign(state, { pinKey, pinProof });
+    await enterVault({
+      key, version: res.version, entries: [], questions: parsed.questions, required: parsed.required, hasPin: true,
+    });
     toast('Vault created');
   } catch (err) {
     setMsg(form, err.message);
@@ -274,7 +473,7 @@ async function onSettings(e) {
     });
     state.questions = parsed.questions;
     state.required = parsed.required;
-    show('vault');
+    show('security');
     toast('Security questions updated');
   } catch (err) {
     setMsg(form, err.message);
@@ -487,14 +686,20 @@ $('#unlock-form').addEventListener('submit', onUnlock);
 $('#new-question').addEventListener('click', onNewQuestion);
 $('#setup-form').addEventListener('submit', onSetup);
 $('#settings-form').addEventListener('submit', onSettings);
-$('#settings-cancel').addEventListener('click', () => show('vault'));
+$('#settings-cancel').addEventListener('click', () => show('security'));
 $('#add-btn').addEventListener('click', () => openEntry(null));
-$('#settings-btn').addEventListener('click', openSettings);
+$('#settings-btn').addEventListener('click', openSecurity);
+$('#pin-notice-btn').addEventListener('click', openSecurity);
+$('#security-back').addEventListener('click', () => show('vault'));
+$('#questions-btn').addEventListener('click', openSettings);
+$('#pin-set-form').addEventListener('submit', onPinSet);
+$('#pin-form').addEventListener('submit', onPin);
 $('#lock-btn').addEventListener('click', () => { clearTimeout(idleTimer); start(); });
 $('#search').addEventListener('input', renderEntries);
 $('#entry-form').addEventListener('submit', onEntrySubmit);
 $('#entry-cancel').addEventListener('click', () => $('#entry-dialog').close());
 $('#entry-delete').addEventListener('click', onEntryDelete);
 $('#retry').addEventListener('click', start);
+$('#photo-input').addEventListener('change', onPhotoChosen);
 
 start();

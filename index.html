@@ -6,12 +6,12 @@
   <meta name="robots" content="noindex, nofollow">
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; connect-src 'self' https://*.supabase.co; img-src 'self' data:; script-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'">
+        content="default-src 'self'; connect-src 'self' https://*.supabase.co; img-src 'self' data: blob:; script-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'">
   <title>Berlinski Family Vault</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔐</text></svg>">
   <link rel="stylesheet" href="style.css">
 </head>
-<body data-view="loading">
+<body data-view="loading" data-theme="gate">
 <main>
   <section data-view="loading" class="center-screen">
     <p class="gate-loading">Opening the vault<span class="dots"></span></p>
@@ -36,16 +36,36 @@
         <li><span>Popcorn reserves</span><b>Adequate</b></li>
       </ul>
 
+      <form id="pin-form" autocomplete="off">
+        <p class="prompt" id="pin-prompt">Enter the family PIN</p>
+        <input name="pin" id="pin-input" class="pin-input" type="password" inputmode="numeric"
+               pattern="[0-9]*" maxlength="8" autocomplete="off" aria-labelledby="pin-prompt">
+        <p class="msg" role="alert"></p>
+        <button type="submit" class="primary wide-btn gate-btn">Continue</button>
+      </form>
+
+      <p class="gate-foot">Unauthorised viewers will be assigned washing-up duty.</p>
+    </div>
+  </section>
+
+  <section data-view="questions" class="gate" hidden>
+    <div class="gate-panel">
+      <p class="eyebrow">Level 1 cleared</p>
+      <h1 class="granted">Access Granted</h1>
+
+      <figure class="team" id="team" hidden>
+        <div class="team-photo"><img id="team-img" alt="The Berlinski vault security team"></div>
+        <figcaption>On duty: vault security &amp; K-9 unit</figcaption>
+      </figure>
+
       <form id="unlock-form" autocomplete="off">
-        <p class="prompt">Prove you're a Berlinski</p>
+        <p class="prompt">Final check: prove you're a Berlinski</p>
         <div id="challenge-questions"></div>
         <p class="hint">Capitals, spaces and punctuation don't matter.</p>
         <p id="unlock-msg" class="msg" role="alert"></p>
         <button type="submit" class="primary wide-btn gate-btn">Unlock the vault</button>
-        <button type="button" id="new-question" class="link">Request a different question</button>
+        <button type="button" id="new-question" class="link">Request different questions</button>
       </form>
-
-      <p class="gate-foot">Unauthorised viewers will be assigned washing-up duty.</p>
     </div>
   </section>
 
@@ -56,6 +76,14 @@
       one at random. Avoid answers that strangers could find online (like birthdays or school names).
     </p>
     <form id="setup-form" class="qa-form" autocomplete="off">
+      <div class="pin-fields">
+        <label class="field"><span>Family PIN (4–8 digits, asked first)</span>
+          <input name="pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" required autocomplete="off">
+        </label>
+        <label class="field"><span>Type the PIN again</span>
+          <input name="pin2" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" required autocomplete="off">
+        </label>
+      </div>
       <div class="qa-list"></div>
       <label class="field inline">
         <span>Questions asked at each unlock</span>
@@ -74,13 +102,56 @@
       <h1><span aria-hidden="true">🔐</span> Berlinski Family Vault</h1>
       <div class="actions">
         <button type="button" id="add-btn" class="primary">+ Add</button>
-        <button type="button" id="settings-btn">Questions</button>
+        <button type="button" id="settings-btn">Settings</button>
         <button type="button" id="lock-btn">Lock</button>
       </div>
     </header>
+    <div id="pin-notice" class="notice" hidden>
+      <span><b>Add the first layer of security:</b> set a family PIN and upload the security team photo.</span>
+      <button type="button" id="pin-notice-btn" class="primary">Set up now</button>
+    </div>
     <input id="search" type="search" placeholder="Search services, people, logins…" aria-label="Search">
     <div id="entries" class="grid"></div>
     <p id="empty" class="muted center" hidden></p>
+  </section>
+
+  <section data-view="security" class="card wide" hidden>
+    <div class="row-actions top-actions">
+      <h1 class="spacer">Settings</h1>
+      <button type="button" id="security-back">Back to passwords</button>
+    </div>
+
+    <form id="pin-set-form" class="setting" autocomplete="off">
+      <h2>Family PIN</h2>
+      <p class="muted" id="pin-status"></p>
+      <div class="pin-fields">
+        <label class="field"><span>New PIN (4–8 digits)</span>
+          <input name="pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" required autocomplete="off">
+        </label>
+        <label class="field"><span>Type it again</span>
+          <input name="pin2" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" required autocomplete="off">
+        </label>
+      </div>
+      <p class="msg" role="alert"></p>
+      <button type="submit" class="primary">Save PIN</button>
+    </form>
+
+    <div class="setting">
+      <h2>Security team photo</h2>
+      <p class="muted">Shown on page 2, after the PIN. It's encrypted, so only people with the PIN can see it.</p>
+      <img id="photo-preview" class="photo-preview" alt="Current security team photo" hidden>
+      <label class="file-btn">
+        <input type="file" id="photo-input" accept="image/*">
+        <span id="photo-label">Upload photo</span>
+      </label>
+      <p id="photo-msg" class="msg" role="status"></p>
+    </div>
+
+    <div class="setting">
+      <h2>Security questions</h2>
+      <p class="muted">Change the 10 questions, their answers, or how many are asked.</p>
+      <button type="button" id="questions-btn">Change security questions</button>
+    </div>
   </section>
 
   <section data-view="settings" class="card wide" hidden>
