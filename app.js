@@ -1,5 +1,5 @@
-import { rpc, isConfigured } from './api.js';
-import * as vc from './crypto.js';
+import { rpc, isConfigured } from './api.js?v=20261003b';
+import * as vc from './crypto.js?v=20261003b';
 
 const QUESTION_COUNT = 10;
 const IDLE_LOCK_MS = 10 * 60 * 1000;
