@@ -50,8 +50,7 @@ function el(tag, props = {}, children = []) {
 }
 
 function show(view) {
-  for (const s of document.querySelectorAll('main [data-view]')) s.hidden = s.dataset.view !== view;
-  document.body.dataset.view = view;
+  for (const s of document.querySelectorAll('[data-view]')) s.hidden = s.dataset.view !== view;
   window.scrollTo(0, 0);
 }
 
@@ -116,16 +115,6 @@ function renderChallenge(ch) {
       el('input', { name: `a${i}`, required: true, autocapitalize: 'none', spellcheck: 'false' }),
     ])));
   setMsg($('#unlock-form'), '');
-  $('.dial-wrap').classList.remove('open');
-  $('.gate-panel').classList.remove('denied');
-}
-
-function denied(form, text) {
-  setMsg(form, text);
-  const panel = $('.gate-panel');
-  panel.classList.remove('denied');
-  void panel.offsetWidth; // restart the shake animation
-  panel.classList.add('denied');
 }
 
 async function onNewQuestion() {
@@ -151,25 +140,22 @@ async function onUnlock(e) {
   const form = e.target;
   const ch = state.challenge;
   const answers = ch.questions.map((_, i) => form.elements[`a${i}`].value);
-  if (answers.some(a => !vc.normalizeAnswer(a))) return denied(form, 'Please answer every question.');
+  if (answers.some(a => !vc.normalizeAnswer(a))) return setMsg(form, 'Please answer every question.');
 
   setBusy(form, true);
-  setMsg(form, 'VERIFYING IDENTITY…', true);
+  setMsg(form, 'Checking…', true);
   try {
     const { wrapKey, authProof } = await vc.deriveFromAnswers(answers, ch.salt);
     const res = await rpc('vault_unlock', { p_combo: ch.combo, p_proof: authProof });
     if (res.error === 'locked') {
-      return denied(form, 'LOCKDOWN ENGAGED. Too many wrong answers — try again in 15 minutes.');
+      return setMsg(form, 'Too many wrong answers. The vault is locked — try again in 15 minutes.');
     }
     if (res.error === 'wrong') {
-      return denied(form, res.remaining > 0
-        ? `ACCESS DENIED. ${res.remaining} more wrong ${res.remaining === 1 ? 'try' : 'tries'} and the vault locks for 15 minutes.`
-        : 'ACCESS DENIED. LOCKDOWN ENGAGED for 15 minutes.');
+      return setMsg(form, res.remaining > 0
+        ? `That's not right. ${res.remaining} more wrong ${res.remaining === 1 ? 'try' : 'tries'} will lock the vault for 15 minutes.`
+        : 'That\'s not right. The vault is now locked for 15 minutes.');
     }
     const key = await vc.unwrapVaultKey(wrapKey, res.wrapped_key);
-    setMsg(form, 'ACCESS GRANTED. Welcome home.', true);
-    $('.dial-wrap').classList.add('open');
-    await new Promise(r => setTimeout(r, 850));
     await enterVault({
       key,
       version: res.version,
@@ -179,7 +165,7 @@ async function onUnlock(e) {
     });
     form.reset();
   } catch (err) {
-    denied(form, err.message);
+    setMsg(form, err.message);
   } finally {
     setBusy(form, false);
   }

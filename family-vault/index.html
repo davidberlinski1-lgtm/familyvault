@@ -7,14 +7,14 @@
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; connect-src 'self' https://*.supabase.co; img-src 'self' data:; script-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'">
-  <title>Berlinski Family Vault</title>
+  <title>Family Vault</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔐</text></svg>">
   <link rel="stylesheet" href="style.css">
 </head>
-<body data-view="loading">
+<body>
 <main>
   <section data-view="loading" class="center-screen">
-    <p class="gate-loading">ESTABLISHING SECURE CONNECTION<span class="dots"></span></p>
+    <p class="muted">Loading…</p>
   </section>
 
   <section data-view="error" class="card narrow" hidden>
@@ -23,39 +23,20 @@
     <button type="button" id="retry" class="primary">Try again</button>
   </section>
 
-  <section data-view="unlock" class="gate" hidden>
-    <div class="gate-panel">
-      <div class="gate-bar">
-        <span><i class="live-dot" aria-hidden="true"></i>SECURE TERMINAL · BFV-01</span>
-        <span>CLEARANCE: COUCH POTATO</span>
-      </div>
-
-      <div class="dial-wrap" aria-hidden="true"><div class="dial"></div></div>
-
-      <p class="eyebrow">// TOP SECRET · BERLINSKI EYES ONLY</p>
-      <h1 class="gate-title">Berlinski Family<br><span>Streaming Services</span><br>Password Vault</h1>
-
-      <ul class="status">
-        <li><span>ENCRYPTION</span><b>AES-256 · ONLINE</b></li>
-        <li><span>INTRUDER LOCKOUT</span><b class="amber">ARMED</b></li>
-        <li><span>POPCORN RESERVES</span><b>ADEQUATE</b></li>
-      </ul>
-
-      <form id="unlock-form" autocomplete="off">
-        <p class="prompt">&gt; IDENTITY CHECK — prove you're a Berlinski<span class="cursor" aria-hidden="true"></span></p>
-        <div id="challenge-questions"></div>
-        <p class="hint">Capitals, spaces and punctuation don't matter.</p>
-        <p id="unlock-msg" class="msg" role="alert"></p>
-        <button type="submit" class="primary wide-btn gate-btn">Unlock the vault</button>
-        <button type="button" id="new-question" class="link">Request a different question</button>
-      </form>
-
-      <p class="gate-foot">Unauthorised viewers will be assigned washing-up duty.</p>
-    </div>
+  <section data-view="unlock" class="card narrow" hidden>
+    <div class="logo" aria-hidden="true">🔐</div>
+    <h1>Family Vault</h1>
+    <p class="muted">Answer to unlock. Capitals, spaces and punctuation don't matter.</p>
+    <form id="unlock-form" autocomplete="off">
+      <div id="challenge-questions"></div>
+      <p id="unlock-msg" class="msg" role="alert"></p>
+      <button type="submit" class="primary wide-btn">Unlock</button>
+      <button type="button" id="new-question" class="link">Ask me a different question</button>
+    </form>
   </section>
 
   <section data-view="setup" class="card wide" hidden>
-    <h1>Set up the Berlinski Family Vault</h1>
+    <h1>Set up your Family Vault</h1>
     <p class="muted">
       Write 10 questions only your family can answer. Each time someone visits, the site picks
       one at random. Avoid answers that strangers could find online (like birthdays or school names).
@@ -76,7 +57,7 @@
 
   <section data-view="vault" hidden>
     <header class="topbar">
-      <h1><span aria-hidden="true">🔐</span> Berlinski Family Vault</h1>
+      <h1><span aria-hidden="true">🔐</span> Family Vault</h1>
       <div class="actions">
         <button type="button" id="add-btn" class="primary">+ Add</button>
         <button type="button" id="settings-btn">Questions</button>
