@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; connect-src 'self' https://*.supabase.co; img-src 'self' data:; script-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'">
+  <title>Family Vault</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔐</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <section data-view="loading" class="center-screen">
+    <p class="muted">Loading…</p>
+  </section>
+
+  <section data-view="error" class="card narrow" hidden>
+    <h1>Something went wrong</h1>
+    <p id="error-msg"></p>
+    <button type="button" id="retry" class="primary">Try again</button>
+  </section>
+
+  <section data-view="unlock" class="card narrow" hidden>
+    <div class="logo" aria-hidden="true">🔐</div>
+    <h1>Family Vault</h1>
+    <p class="muted">Answer to unlock. Capitals, spaces and punctuation don't matter.</p>
+    <form id="unlock-form" autocomplete="off">
+      <div id="challenge-questions"></div>
+      <p id="unlock-msg" class="msg" role="alert"></p>
+      <button type="submit" class="primary wide-btn">Unlock</button>
+      <button type="button" id="new-question" class="link">Ask me a different question</button>
+    </form>
+  </section>
+
+  <section data-view="setup" class="card wide" hidden>
+    <h1>Set up your Family Vault</h1>
+    <p class="muted">
+      Write 10 questions only your family can answer. Each time someone visits, the site picks
+      one at random. Avoid answers that strangers could find online (like birthdays or school names).
+    </p>
+    <form id="setup-form" class="qa-form" autocomplete="off">
+      <div class="qa-list"></div>
+      <label class="field inline">
+        <span>Questions asked at each unlock</span>
+        <select name="answersRequired">
+          <option value="1">1 question</option>
+          <option value="2">2 questions (much harder to guess)</option>
+        </select>
+      </label>
+      <p class="msg" role="alert"></p>
+      <button type="submit" class="primary">Create vault</button>
+    </form>
+  </section>
+
+  <section data-view="vault" hidden>
+    <header class="topbar">
+      <h1><span aria-hidden="true">🔐</span> Family Vault</h1>
+      <div class="actions">
+        <button type="button" id="add-btn" class="primary">+ Add</button>
+        <button type="button" id="settings-btn">Questions</button>
+        <button type="button" id="lock-btn">Lock</button>
+      </div>
+    </header>
+    <input id="search" type="search" placeholder="Search services, people, logins…" aria-label="Search">
+    <div id="entries" class="grid"></div>
+    <p id="empty" class="muted center" hidden></p>
+  </section>
+
+  <section data-view="settings" class="card wide" hidden>
+    <h1>Change security questions</h1>
+    <p class="muted">
+      Type all 10 answers again (they're never stored, so they can't be shown here).
+      Your saved logins stay as they are.
+    </p>
+    <form id="settings-form" class="qa-form" autocomplete="off">
+      <div class="qa-list"></div>
+      <label class="field inline">
+        <span>Questions asked at each unlock</span>
+        <select name="answersRequired">
+          <option value="1">1 question</option>
+          <option value="2">2 questions (much harder to guess)</option>
+        </select>
+      </label>
+      <p class="msg" role="alert"></p>
+      <div class="row-actions">
+        <button type="button" id="settings-cancel">Cancel</button>
+        <button type="submit" class="primary">Save questions</button>
+      </div>
+    </form>
+  </section>
+</main>
+
+<dialog id="entry-dialog">
+  <form id="entry-form" autocomplete="off">
+    <h2 id="entry-title">Add a service</h2>
+    <label class="field"><span>Service</span>
+      <input name="service" required list="service-suggestions" placeholder="Netflix">
+    </label>
+    <datalist id="service-suggestions">
+      <option>Netflix</option><option>Disney+</option><option>Prime Video</option>
+      <option>Apple TV+</option><option>Max</option><option>NOW</option>
+      <option>Paramount+</option><option>BBC iPlayer</option><option>ITVX</option>
+      <option>Spotify</option><option>YouTube Premium</option><option>Sky Go</option>
+      <option>Hulu</option><option>Peacock</option><option>Crunchyroll</option><option>DAZN</option>
+    </datalist>
+    <label class="field"><span>Who uses it / profile</span>
+      <input name="profile" placeholder="Whole family">
+    </label>
+    <label class="field"><span>Email or username</span>
+      <input name="username" autocapitalize="none" spellcheck="false">
+    </label>
+    <label class="field"><span>Password</span>
+      <input name="password" autocapitalize="none" spellcheck="false">
+    </label>
+    <label class="field"><span>Website</span>
+      <input name="url" placeholder="netflix.com" autocapitalize="none" spellcheck="false">
+    </label>
+    <label class="field"><span>Notes</span>
+      <textarea name="notes" rows="3" placeholder="Profile PIN, plan, renewal date…"></textarea>
+    </label>
+    <p class="msg" role="alert"></p>
+    <div class="row-actions">
+      <button type="button" id="entry-delete" class="danger">Delete</button>
+      <span class="spacer"></span>
+      <button type="button" id="entry-cancel">Cancel</button>
+      <button type="submit" class="primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" role="status" aria-live="polite"></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
